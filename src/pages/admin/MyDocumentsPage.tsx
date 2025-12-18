@@ -1,0 +1,98 @@
+import { useCallback, useEffect, useState } from 'react';
+import { apiRequest } from '../../api/client';
+import { useAuth } from '../../auth/AuthContext';
+import type { DocumentListDto } from '../../types/backend';
+
+function formatDate(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString();
+}
+
+export default function MyDocumentsPage() {
+  const { token } = useAuth();
+  const [documents, setDocuments] = useState<DocumentListDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await apiRequest<DocumentListDto[]>('/api/Document/my-documents', {
+        token,
+      });
+      setDocuments(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load documents.');
+      setDocuments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return (
+    <div className="content-card">
+      <div className="page-toolbar">
+        <div>
+          <h2>My Documents</h2>
+          <p className="muted">Documents available for your roles.</p>
+        </div>
+        <button className="btn" type="button" onClick={load} disabled={isLoading}>
+          Refresh
+        </button>
+      </div>
+
+      {isLoading && <div className="page-state">Loading…</div>}
+      {!isLoading && error && <div className="page-state page-error">{error}</div>}
+
+      {!isLoading && !error && (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>File</th>
+              <th>Roles</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {documents.map((d) => (
+              <tr key={d.id}>
+                <td>
+                  <div style={{ fontWeight: 900, color: 'var(--text-dark)' }}>{d.title}</div>
+                  {d.description && <div className="muted">{d.description}</div>}
+                </td>
+                <td>{d.fileName}</td>
+                <td>
+                  {d.assignedRoles?.length
+                    ? d.assignedRoles.map((r) => (
+                        <span key={r} className="badge">
+                          {r}
+                        </span>
+                      ))
+                    : '—'}
+                </td>
+                <td>{formatDate(d.createdAt)}</td>
+              </tr>
+            ))}
+
+            {documents.length === 0 && (
+              <tr>
+                <td colSpan={4} className="muted">
+                  No documents found for your roles.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+

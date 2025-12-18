@@ -1,23 +1,31 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { ApiRequestError } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import './Login.css';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const { login, isAuthenticated } = useAuth();
+  const [email, setEmail] = useState('admin@fabrika.com');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  if (isAuthenticated) return <Navigate to="/admin/dashboard" replace />;
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
-    // Simulate authentication
-    setTimeout(() => {
+    try {
+      await login({ email, password });
+      navigate('/admin', { replace: true });
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Login failed. Please try again.');
       setIsLoading(false);
-      // Navigate to dashboard on successful login
-      navigate('/dashboard');
-    }, 1000);
+    }
   };
 
   return (
@@ -29,6 +37,7 @@ const Login = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
+          {error && <div className="login-error">{error}</div>}
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
@@ -36,7 +45,7 @@ const Login = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@example.com"
+              placeholder="admin@fabrika.com"
               required
             />
           </div>
